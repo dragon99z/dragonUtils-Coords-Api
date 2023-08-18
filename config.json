@@ -1,0 +1,11 @@
+{
+  "port":3000,
+  "apiKeys": [
+    "your_api_key_1",
+    "your_api_key_2"
+  ],
+  "rateLimit": {
+    "delayInSeconds": 60,
+    "maxRequestsPerSecond": 90
+  }
+}

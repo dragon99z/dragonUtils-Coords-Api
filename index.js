@@ -4,10 +4,41 @@
  */
 
 const express = require('express');
-const fs = require('fs').promises;
+const rateLimit = require("express-rate-limit");
+const { body, validationResult } = require('express-validator');
+const helmet = require("helmet");
+const fsp = require('fs').promises;
+const fs = require('fs');
+
+const configData = fs.readFileSync('config.json');
+const config = JSON.parse(configData);
+
+// Set the maximum number of requests per minute (change the values as needed)
+const limiter = rateLimit({
+  windowMs: config.rateLimit.delayInSeconds * 1000,
+  max: config.rateLimit.maxRequestsPerSecond,
+});
+
+const apiKeyMiddleware = (req, res, next) => {
+  const apiKey = req.header('X-API-Key') || req.header('API-Key');
+
+  // Check if the API key is present and valid
+  if (!apiKey || !config.apiKeys.includes(apiKey)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  next();
+};
 
 const app = express();
 app.use(express.json());
+
+// Apply the rate limiter to all routes
+app.use(limiter);
+app.use(helmet());
+
+// Apply the middleware to all routes
+app.use(apiKeyMiddleware);
 
 /**
  * POST /api/save
@@ -23,12 +54,28 @@ app.use(express.json());
  * }
  */
 
-app.post('/api/save', async (req, res) => {
+app.post('/api/save',[
+  apiKeyMiddleware, // Add the apiKeyMiddleware here
+  // Validate and sanitize the request body fields
+  body('serverId').trim().isString(),
+  body('coordinates').trim().isString(),
+  body('location').trim().isString(),
+  body('userId').trim().isString(),
+
+  // Handle validation errors
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  }
+], async (req, res) => {
   try {
     const { serverId, coordinates, location, userId } = req.body;
 
     // read existing data from JSON file
-    let data = await fs.readFile('data.json');
+    let data = await fsp.readFile('data.json');
     let jsonData = JSON.parse(data);
 
     // check if the server ID already exists
@@ -74,7 +121,7 @@ app.post('/api/save', async (req, res) => {
     }
 
     // write updated data to JSON file
-    await fs.writeFile('data.json', JSON.stringify(jsonData));
+    await fsp.writeFile('data.json', JSON.stringify(jsonData));
 
     res.json({ success: true });
   } catch (err) {
@@ -96,12 +143,26 @@ app.post('/api/save', async (req, res) => {
  * }
  */
 
-app.post('/api/remove', async (req, res) => {
+app.post('/api/remove',[
+  apiKeyMiddleware, // Add the apiKeyMiddleware here
+  // Validate and sanitize the request body fields
+  body('serverId').trim().isString(),
+  body('userId').trim().isString(),
+
+  // Handle validation errors
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  }
+], async (req, res) => {
   try {
     const { serverId, userId } = req.body;
 
     // read existing data from JSON file
-    let data = await fs.readFile('data.json');
+    let data = await fsp.readFile('data.json');
     let jsonData = JSON.parse(data);
 
     // check if the server ID exists
@@ -120,7 +181,7 @@ app.post('/api/remove', async (req, res) => {
           }
 
           // write updated data to JSON file
-          await fs.writeFile('data.json', JSON.stringify(jsonData));
+          await fsp.writeFile('data.json', JSON.stringify(jsonData));
 
           res.json({ success: true });
           return;
@@ -149,12 +210,25 @@ app.post('/api/remove', async (req, res) => {
  * }
  */
 
-app.get('/api/coordinates/:serverId', async (req, res) => {
+app.get('/api/coordinates/:serverId',[
+  apiKeyMiddleware, // Add the apiKeyMiddleware here
+  // Validate and sanitize the request body fields
+  body('serverId').trim().isString(),
+
+  // Handle validation errors
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  }
+], async (req, res) => {
   try {
     const { serverId } = req.params;
 
     // read existing data from JSON file
-    let data = await fs.readFile('data.json');
+    let data = await fsp.readFile('data.json');
     let jsonData = JSON.parse(data);
 
     // check if the server ID exists
@@ -187,7 +261,6 @@ app.get('/api/coordinates/:serverId', async (req, res) => {
  * Start the server on the specified port.
  */
 
-const port = 3000;
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+app.listen(config.port, () => {
+  console.log(`Server is running on port ${config.port}`);
 });
