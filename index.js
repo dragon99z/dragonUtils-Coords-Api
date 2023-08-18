@@ -54,7 +54,7 @@ app.use(apiKeyMiddleware);
  * }
  */
 
-app.post('/api/save',[
+app.get('/api/save',[
   apiKeyMiddleware, // Add the apiKeyMiddleware here
   // Validate and sanitize the request body fields
   body('serverId').trim().isString(),
@@ -72,7 +72,8 @@ app.post('/api/save',[
   }
 ], async (req, res) => {
   try {
-    const { serverId, coordinates, location, userId } = req.body;
+    const { serverId, coordinates, location, userId } = req.query;
+    let coords = JSON.parse(coordinates)
 
     // read existing data from JSON file
     let data = await fsp.readFile('data.json');
@@ -107,15 +108,15 @@ app.post('/api/save',[
       // location does not exist, add it to the array
       if (!locationExists) {
         if (Array.isArray(jsonData[serverId])) {
-          jsonData[serverId].push({ coordinates, location, userId });
+          jsonData[serverId].push({ coords, location, userId });
         } else {
-          jsonData[serverId].locations.push({ coordinates, location, userId });
+          jsonData[serverId].locations.push({ coords, location, userId });
         }
       }
     } else {
       // server ID does not exist, create new object with data
       jsonData[serverId] = {
-        locations: [{ coordinates, location, userId }],
+        locations: [{ coords, location, userId }],
         userIds: [userId],
       };
     }
@@ -143,7 +144,7 @@ app.post('/api/save',[
  * }
  */
 
-app.post('/api/remove',[
+app.get('/api/remove',[
   apiKeyMiddleware, // Add the apiKeyMiddleware here
   // Validate and sanitize the request body fields
   body('serverId').trim().isString(),
@@ -159,7 +160,7 @@ app.post('/api/remove',[
   }
 ], async (req, res) => {
   try {
-    const { serverId, userId } = req.body;
+    const { serverId, userId } = req.query;
 
     // read existing data from JSON file
     let data = await fsp.readFile('data.json');
@@ -233,20 +234,20 @@ app.get('/api/coordinates/:serverId',[
 
     // check if the server ID exists
     if (jsonData[serverId]) {
-      let coordinates = [];
+      let coords = [];
 
       // check if the server ID has multiple locations
       if (Array.isArray(jsonData[serverId])) {
-        coordinates = jsonData[serverId].map(
-          ({ coordinates, location }) => ({ coordinates, location })
+        coords = jsonData[serverId].map(
+          ({ coords, location }) => ({ coords, location })
         );
       } else {
-        coordinates = jsonData[serverId].locations.map(
-          ({ coordinates, location }) => ({ coordinates, location })
+        coords = jsonData[serverId].locations.map(
+          ({ coords, location }) => ({ coords, location })
         );
       }
 
-      res.json({ success: true, coordinates });
+      res.json({ success: true, coords });
     } else {
       // server ID not found
       res.json({ success: false, message: 'Server ID not found' });
