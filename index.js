@@ -216,7 +216,7 @@ app.get('/api/remove',[
  * }
  */
 
-app.get('/api/coordinates/:serverId',[
+app.get('/api/coordinates',[
   apiKeyMiddleware, // Add the apiKeyMiddleware here
   // Validate and sanitize the request body fields
   body('serverId').trim().isString(),
@@ -231,7 +231,7 @@ app.get('/api/coordinates/:serverId',[
   }
 ], async (req, res) => {
   try {
-    let { serverId } = req.params;
+    let { serverId } = req.query;
 
     // read existing data from JSON file
     let data = await fsp.readFile('data.json');
