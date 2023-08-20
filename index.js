@@ -33,6 +33,12 @@ const apiKeyMiddleware = (req, res, next) => {
 const app = express();
 app.use(express.json());
 
+// Define the trust options for the 'trust proxy' setting
+const trustOptions = ['loopback', 'linklocal', 'uniquelocal'];
+
+// Enable 'trust proxy' with the custom trust options
+app.set('trust proxy', trustOptions);
+
 // Apply the rate limiter to all routes
 app.use(limiter);
 app.use(helmet());
@@ -161,7 +167,6 @@ app.get('/api/remove',[
 ], async (req, res) => {
   try {
     let { serverId, userId } = req.query;
-
     // read existing data from JSON file
     let data = await fsp.readFile('data.json');
     let jsonData = JSON.parse(data);
