@@ -20,6 +20,7 @@ const limiter = rateLimit({
 });
 
 const apiKeyMiddleware = (req, res, next) => {
+  body('Key').trim().isString()
   const apiKey = req.query.Key
 
   // Check if the API key is present and valid
@@ -85,6 +86,14 @@ app.get('/api/save',[
     let data = await fsp.readFile('data.json');
     let jsonData = JSON.parse(data);
 
+    if (!jsonData[serverId]) {
+      // server ID does not exist, create new object with data
+      jsonData[serverId] = {
+        locations: [],
+        userIds: [],
+      };
+    }
+
     // check if the server ID already exists
     if (jsonData[serverId]) {
       let locationExists = false;
@@ -94,12 +103,10 @@ app.get('/api/save',[
         locationExists = jsonData[serverId].some(
           (item) => item.location === location
         );
-      } else {
-        locationExists =
-          jsonData[serverId].locations &&
-          jsonData[serverId].locations.some(
-            (item) => item.location === location
-          );
+      } else if (jsonData[serverId].locations){
+        locationExists = jsonData[serverId].locations.some(
+          (item) => item.location === location
+        );
       }
 
       // add the user ID to the array if it's not already present
@@ -112,12 +119,10 @@ app.get('/api/save',[
       }
 
       // location does not exist, add it to the array
-      if (!locationExists) {
-        if (Array.isArray(jsonData[serverId])) {
-          jsonData[serverId].push({ coords, location, userId });
-        } else {
-          jsonData[serverId].locations.push({ coords, location, userId });
-        }
+      if (Array.isArray(jsonData[serverId].locations)) {
+        jsonData[serverId].locations.push({ coords, location, userId });
+      } else {
+        jsonData[serverId].locations = [{ coords, location, userId }];
       }
     } else {
       // server ID does not exist, create new object with data
@@ -239,20 +244,20 @@ app.get('/api/coordinates',[
 
     // check if the server ID exists
     if (jsonData[serverId]) {
-      let coords = [];
+      let coordinates = [];
 
       // check if the server ID has multiple locations
       if (Array.isArray(jsonData[serverId])) {
-        coords = jsonData[serverId].map(
+        coordinates = jsonData[serverId].map(
           ({ coords, location }) => ({ coords, location })
         );
       } else {
-        coords = jsonData[serverId].locations.map(
+        coordinates = jsonData[serverId].locations.map(
           ({ coords, location }) => ({ coords, location })
         );
       }
 
-      res.json({ success: true, coords });
+      res.json({ success: true, coordinates });
     } else {
       // server ID not found
       res.json({ success: false, message: 'Server ID not found' });
@@ -260,6 +265,52 @@ app.get('/api/coordinates',[
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to retrieve data' });
+  }
+});
+
+app.get('/api/addUser',[
+  apiKeyMiddleware, // Add the apiKeyMiddleware here
+  // Validate and sanitize the request body fields
+  body('serverId').trim().isString(),
+  body('userId').trim().isString(),
+
+  // Handle validation errors
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  }
+], async (req, res) => {
+  try {
+    let { serverId, userId } = req.query;
+    // read existing data from JSON file
+    let data = await fsp.readFile('data.json');
+    let jsonData = JSON.parse(data);
+
+    // check if the server ID exists
+    if (jsonData[serverId]) {
+      // check if the user ID exists in the userIds array
+      if (Array.isArray(jsonData[serverId].userIds)) {
+        const userIdIndex = jsonData[serverId].userIds.indexOf(userId);
+        if (userIdIndex === -1) {
+          // add the user ID to the array
+          jsonData[serverId].userIds.push(userId);
+        }
+      }
+    }else{
+      jsonData[serverId] = {
+        userIds: [userId],
+      };
+    }
+    // write updated data to JSON file
+    await fsp.writeFile('data.json', JSON.stringify(jsonData));
+    res.json({ success: true });
+    return;
+} catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to remove data' });
   }
 });
 
