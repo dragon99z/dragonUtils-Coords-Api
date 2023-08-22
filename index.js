@@ -143,7 +143,7 @@ app.get('/api/save',[
 });
 
 /**
- * POST /api/remove
+ * POST /api/removeUser
  * Removes a user ID from a given server ID.
  * Request Body: {
  *   serverId: string,
@@ -155,7 +155,7 @@ app.get('/api/save',[
  * }
  */
 
-app.get('/api/remove',[
+app.get('/api/removeUser',[
   apiKeyMiddleware, // Add the apiKeyMiddleware here
   // Validate and sanitize the request body fields
   body('serverId').trim().isString(),
