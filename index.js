@@ -9,9 +9,29 @@ const { body, validationResult } = require('express-validator');
 const helmet = require("helmet");
 const fsp = require('fs').promises;
 const fs = require('fs');
+const path = require('path');
+const winston = require('winston');
+const { createLogger, format } = winston;
+const DailyRotateFile = require('winston-daily-rotate-file');
 
 const configData = fs.readFileSync('config.json');
 const config = JSON.parse(configData);
+
+
+const logsPath = 'logs'; // Define the parent logs directory
+
+const transport = new DailyRotateFile({
+  dirname: logsPath,
+  filename: '%DATE%/%DATE%.log',
+  datePattern: 'YYYY-MM-DD',
+  utc: true,
+  format: format.combine(format.timestamp(), format.json()),
+});
+
+const logger = createLogger({
+  level: 'info',
+  transports: [transport],
+});
 
 // Set the maximum number of requests per minute (change the values as needed)
 const limiter = rateLimit({
@@ -134,11 +154,12 @@ app.get('/api/save',[
 
     // write updated data to JSON file
     await fsp.writeFile('data.json', JSON.stringify(jsonData));
-
+    logger.info('Request', { apiKey: req.query.Key, method: req.method, url: req.url });
     res.json({ success: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to save data' });
+    logger.info('Request', { apiKey: req.query.Key, method: req.method, url: req.url });
   }
 });
 
@@ -202,9 +223,11 @@ app.get('/api/removeUser',[
 
     // server ID or user ID not found
     res.json({ success: false, message: 'Server ID or User ID not found' });
+    logger.info('Request '+req.method+" "+req.url, { apiKey: req.query.Key, method: req.method, url: req.url });
 } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to remove data' });
+    logger.info('Error '+req.method+" "+req.url, { apiKey: req.query.Key, method: req.method, url: req.url });
   }
 });
 
@@ -262,9 +285,11 @@ app.get('/api/coordinates',[
       // server ID not found
       res.json({ success: false, message: 'Server ID not found' });
     }
+    logger.info('Request '+req.method+" "+req.url, { apiKey: req.query.Key, method: req.method, url: req.url });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to retrieve data' });
+    logger.info('Error '+req.method+" "+req.url, { apiKey: req.query.Key, method: req.method, url: req.url });
   }
 });
 
@@ -307,10 +332,12 @@ app.get('/api/addUser',[
     // write updated data to JSON file
     await fsp.writeFile('data.json', JSON.stringify(jsonData));
     res.json({ success: true });
+    logger.info('Request '+req.method+" "+req.url, { apiKey: req.query.Key, method: req.method, url: req.url });
     return;
 } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to remove data' });
+    logger.info('Error '+req.method+" "+req.url, { apiKey: req.query.Key, method: req.method, url: req.url });
   }
 });
 
