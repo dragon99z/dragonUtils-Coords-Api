@@ -270,14 +270,16 @@ app.get('/api/coordinates',[
       let coordinates = [];
 
       // check if the server ID has multiple locations
-      if (Array.isArray(jsonData[serverId])) {
-        coordinates = jsonData[serverId].map(
-          ({ coords, location }) => ({ coords, location })
-        );
-      } else {
+      if (Array.isArray(jsonData[serverId].locations)) {
         coordinates = jsonData[serverId].locations.map(
           ({ coords, location }) => ({ coords, location })
         );
+      } else if (jsonData[serverId] && jsonData[serverId].userIds) {
+        coordinates = jsonData[serverId].userIds.map((userId) => ({
+          coords: null,
+          location: null,
+          userId,
+        }));
       }
 
       res.json({ success: true, coordinates });
