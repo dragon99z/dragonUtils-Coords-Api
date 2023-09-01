@@ -68,7 +68,7 @@ app.use(helmet());
 app.use(apiKeyMiddleware);
 
 /**
- * POST /api/save
+ * GET /api/addLocation
  * Saves the coordinates, location, and user ID for a given server ID.
  * Request Body: {
  *   serverId: string,
@@ -81,7 +81,7 @@ app.use(apiKeyMiddleware);
  * }
  */
 
-app.get('/api/save',[
+app.get('/api/addLocation',[
   apiKeyMiddleware, // Add the apiKeyMiddleware here
   // Validate and sanitize the request body fields
   body('serverId').trim().isString(),
@@ -164,7 +164,7 @@ app.get('/api/save',[
 });
 
 /**
- * POST /api/removeUser
+ * GET /api/removeUser
  * Removes a user ID from a given server ID.
  * Request Body: {
  *   serverId: string,
@@ -335,6 +335,72 @@ app.get('/api/addUser',[
     await fsp.writeFile('data.json', JSON.stringify(jsonData));
     res.json({ success: true });
     logger.info('Request '+req.method+" "+req.url, { apiKey: req.query.Key, method: req.method, url: req.url });
+    return;
+} catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to remove data' });
+    logger.info('Error '+req.method+" "+req.url, { apiKey: req.query.Key, method: req.method, url: req.url });
+  }
+});
+
+app.get('/api/removeLocation',[
+  apiKeyMiddleware, // Add the apiKeyMiddleware here
+  // Validate and sanitize the request body fields
+  body('serverId').trim().isString(),
+  body('userId').trim().isString(),
+  body('location').trim().isString(),
+
+  // Handle validation errors
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  }
+], async (req, res) => {
+  try {
+    let { serverId, userId, location } = req.query;
+    // read existing data from JSON file
+    let data = await fsp.readFile('data.json');
+    let jsonData = JSON.parse(data);
+
+    // check if the server ID exists
+    if (jsonData[serverId]) {
+      // check if the user ID exists in the userIds array
+      if (Array.isArray(jsonData[serverId].userIds)) {
+        const userIdIndex = jsonData[serverId].userIds.indexOf(userId);
+        if (userIdIndex !== -1) {
+          // remove the location and coordinates
+          let locationIndex = -1;
+          if (Array.isArray(jsonData[serverId].locations)) {
+            locationIndex = jsonData[serverId].locations.findIndex(
+              (item) => item.location === location
+            );
+          }
+
+          if (locationIndex !== -1) {
+            // remove the location from the array
+            jsonData[serverId].locations.splice(locationIndex, 1);
+
+            // check if the locations array is empty
+            if (jsonData[serverId].locations.length === 0) {
+              // delete the complete serverId
+              delete jsonData[serverId];
+            }
+
+            // write updated data to JSON file
+            await fsp.writeFile('data.json', JSON.stringify(jsonData));
+
+            res.json({ success: true });
+            return;
+          }
+        }
+      }
+    }
+
+    // server ID, user ID, location, or coordinates not found
+    console.log('Server ID, User ID, Location, or Coordinates not found');
     return;
 } catch (err) {
     console.error(err);
