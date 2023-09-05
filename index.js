@@ -216,6 +216,7 @@ app.get('/api/removeUser',[
           await fsp.writeFile('data.json', JSON.stringify(jsonData));
 
           res.json({ success: true });
+          logger.info('Request '+req.method+" "+req.url, { apiKey: req.query.Key, method: req.method, url: req.url });
           return;
         }
       }
